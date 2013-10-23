@@ -1,0 +1,408 @@
+<html>
+	<head>
+		<script src="/socket.io/socket.io.js"></script>  
+		<link href='http://fonts.googleapis.com/css?family=Rationale' rel='stylesheet' type='text/css'>
+		<style>
+			html, body, span, object, iframe,
+			h1, h2, h3, h4, h5, h6, p, video {
+			  
+			  padding: 10px;
+			  border: 0;
+			  font-size: 100%;
+			  font: inherit;
+			  vertical-align: baseline;
+			}
+			
+			body {
+			  
+			  font-family: 'Helvetica Neue', Arial, sans-serif;
+			  font-size: 12px;
+			  line-height: 1.7em;
+			  background: #FFFFFF;
+			  color: #00FFFF;
+			}
+
+			
+			h1, h2, h3, p, ul, ol, pre, dl {		
+			  margin-top: 0px;
+			  padding-left: 20px;
+			  position:fixed;
+			  }
+
+			h1, h2, .command #super-list, .element, .tagline, #index-list, 
+			.super-list .link {
+			  font-family: 'Rationale', sans-serif;
+			}
+
+			h1 {
+			  font-size: 50px;
+			  line-height: 1.1em;
+			}
+
+			h2 {
+			  font-size: 44px;
+			  line-height: 1.1em;
+			  
+			}
+			canvas {
+				padding-left: 20px;
+				padding-top: 20px;
+				
+			}
+			
+			#thevideo{
+				position: fixed;
+			}
+
+			#container {
+			float: right;
+			position: relative;
+			width: 600px;
+			}
+
+			.big {
+				color : #ffffff;
+			}
+
+			#instruction {
+				font-family: 'Helvetica Neue', Arial, sans-serif;
+			  	font-size: 12px;
+			  	line-height: 1.7em;
+				color: #030303;
+				margin-top: 5px;
+				padding-left: 0px;
+				padding-bottom: 15px;
+			}
+
+		</style>
+        <script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
+			
+	<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
+  	<script type="text/javascript" src="http://inspirit.github.io/jsfeat/js/jsfeat-min.js"></script>
+    <script type="text/javascript" src="http://itp.nyu.edu/~jj1357/liveweb/profileface.js"></script>
+    <script type="text/javascript" src="http://inspirit.github.io/jsfeat/js/compatibility.js"></script>
+    <script type="text/javascript" src="http://itp.nyu.edu/~jj1357/liveweb/profiler.js"></script>
+    <script type="text/javascript" src="http://inspirit.github.io/jsfeat/js/dat.gui.min.js"></script>
+    	
+		<script>
+			var socket = io.connect('http://ec2-54-200-79-16.us-west-2.compute.amazonaws.com:8080/');
+
+			socket.on('connect', function() {
+				console.log("Connected" );
+
+			});
+				
+			var ready = false;
+
+			var initWebRTC = function() {
+
+				var video = document.getElementById("thevideo");
+				var canvas = document.getElementById('thecanvas');
+				//var thecontext = canvas.getContext('2d');
+			
+				var ctx = canvas.getContext('2d');
+
+				"use strict";
+				try {
+                compatibility.getUserMedia({video: true}, function(stream) {
+                    try {
+                        video.src = compatibility.URL.createObjectURL(stream);
+                    } catch (error) {
+                        video.src = stream;
+                    }
+                    setTimeout(function() {
+                            video.play();
+                            compatibility.requestAnimationFrame(tick);
+                            //setTimeout(photoReady,2000);
+                            demo_app();
+                        }, 500);
+                }, function (error) {
+                	alert("Failure " + error.code);
+                    $('#canvas').hide();
+                    $('#photobooth').hide();
+                });
+	            } catch (error) {
+    	        	alert("Failure " + error.code);
+        	        $('#canvas').hide();
+            	    $('#photobooth').hide();
+           			 }
+
+            	var stat = new profiler();
+
+           		var gui,options,canvasWidth,canvasHeight;
+          		var img_u8,work_canvas,work_ctx,ii_sum,ii_sqsum,ii_tilted,edg,ii_canny;
+           		var classifier = jsfeat.haar.profileface;
+
+           		//console.log(classifier);
+           		 var max_work_size = 160;
+
+                var demo_opt = function(){
+                	this.min_scale = 4;
+                	this.scale_factor = 1.7;
+                	this.use_canny = false;
+                	this.edges_density = 1;
+                	this.equalize_histogram = true;
+            	}
+
+	            function demo_app() {
+	                canvasWidth  = canvas.width;
+	                canvasHeight = canvas.height;
+	                
+	                ctx.fillStyle = "rgb(0,255,0)";
+	                ctx.strokeStyle = "rgb(0,255,0)";
+
+	                var scale = Math.min(max_work_size/video.videoWidth, max_work_size/video.videoHeight);
+	                var w = (video.videoWidth*scale)|0;
+	                var h = (video.videoHeight*scale)|0;
+
+
+	                img_u8 = new jsfeat.matrix_t(w, h, jsfeat.U8_t | jsfeat.C1_t);
+	                edg = new jsfeat.matrix_t(w, h, jsfeat.U8_t | jsfeat.C1_t);
+	                work_canvas = document.createElement('canvas');
+	                work_canvas.width = w;
+	                work_canvas.height = h;
+
+	                //console.log(work_canvas.width+"////////See!!!!! ");
+	                work_ctx = work_canvas.getContext('2d');
+	                ii_sum = new Int32Array((w+1)*(h+1));
+	                ii_sqsum = new Int32Array((w+1)*(h+1));
+	                ii_tilted = new Int32Array((w+1)*(h+1));
+	                ii_canny = new Int32Array((w+1)*(h+1));
+
+	                options = new demo_opt();
+
+	                stat.add("haar detector");
+	            }
+	            
+	            function tick() {
+	                compatibility.requestAnimationFrame(tick);
+	                stat.new_frame();
+	                
+	                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+
+	                    ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
+
+	                    work_ctx.drawImage(video, 0, 0, work_canvas.width, work_canvas.height);
+	                    var imageData = work_ctx.getImageData(0, 0, work_canvas.width, work_canvas.height);
+
+	                    stat.start("haar detector");
+	                    
+	                    jsfeat.imgproc.grayscale(imageData.data, img_u8.data);
+
+	                    // possible options
+	                    if(options.equalize_histogram) {
+	                        jsfeat.imgproc.equalize_histogram(img_u8, img_u8);
+	                    }
+	                    //jsfeat.imgproc.gaussian_blur(img_u8, img_u8, 3);
+
+	                    jsfeat.imgproc.compute_integral_image(img_u8, ii_sum, ii_sqsum, classifier.tilted ? ii_tilted : null);
+
+	                    if(options.use_canny) {
+	                        jsfeat.imgproc.canny(img_u8, edg, 10, 50);
+	                        jsfeat.imgproc.compute_integral_image(edg, ii_canny, null, null);
+	                    }
+
+	                    jsfeat.haar.edges_density = options.edges_density;
+	                    var rects = jsfeat.haar.detect_multi_scale(ii_sum, ii_sqsum, ii_tilted, options.use_canny? ii_canny : null, img_u8.cols, img_u8.rows, classifier, options.scale_factor, options.min_scale);
+	                    rects = jsfeat.haar.group_rectangles(rects, 6);
+
+	                    stat.stop("haar detector");
+	                    
+	                   	//console.log(stat.runtime());
+
+	               		 if(stat.runtime() >= 20 && rects.length >= 1){
+	                    	draw();
+	                    	//console.log("draw!!");
+	                    	//console.log(stat.runtime());
+	                    	
+	                	 }
+	                    
+						
+	                    // draw only most confident one
+	                    draw_faces(ctx, rects, canvasWidth/img_u8.cols, 1);
+
+	                    $('#log').html(stat.log());
+
+	                }
+	            }
+
+	            function draw_faces(ctx, rects, sc, max) {
+	                var on = rects.length;
+	                if(on && max) {
+	                    jsfeat.math.qsort(rects, 0, on-1, function(a,b){return (b.confidence<a.confidence);})
+	                }
+	                var n = max || on;
+	                n = Math.min(n, on);
+	                var r;
+	                for(var i = 0; i < n; ++i) {
+	                    r = rects[i];
+	                    ctx.strokeRect((r.x*sc)|0,(r.y*sc)|0,(r.width*sc)|0,(r.height*sc)|0);
+	                }
+
+	            }
+	            
+
+	            $(window).unload(function() {
+	                video.pause();
+	                video.src=null;
+	            });
+
+	        
+
+
+	            /*
+					// These help with cross-browser functionality
+					window.URL = window.URL || window.webkitURL || window.mozURL || window.msURL;
+					navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia;
+					
+					// The video element on the page to display the webcam
+					var video = document.getElementById("thevideo");
+
+					// if we have the method
+					if (navigator.getUserMedia) {
+						navigator.getUserMedia({video: true}, function(stream) {
+								video.src = window.URL.createObjectURL(stream) || stream;
+								video.play();
+								compatibility.requestAnimationFrame(tick);
+								//setTimeout(photoReady,2000);
+									setTimeout(photoReady,2000);
+								
+
+							}, function (error) {
+								alert("Failure " + error.code);
+								$('#canvas').hide();
+								$('#container').hide();
+							});
+					}
+					*/
+	/*
+					var photoReady = function(){
+
+						$('h1').text("SMILE:)");
+						
+						var counter = 4; 
+						var countdown = function(){
+						
+								var subtract = function(){
+									counter = counter-1;
+									$('h1').text("SMILE:)"+counter);
+								};
+								//counter = counter-1;
+								setInterval(subtract,990);
+								
+							//$('h1').text("SMILE:)");	
+						};
+
+						countdown;
+						//$('h1').text("SMILE:)");
+						setTimeout(draw,3000);
+						console.log("takeing a photo...");
+
+					};
+
+				*/
+					var store = function(){
+						
+						$('h1').text("Nice!");
+						//console.log("saving a photo!");
+
+					};
+				
+					var draw = function() {
+						//ctx.drawImage(video,0,0,480,360);
+						
+						
+						var dataUrl = canvas.toDataURL('image/png', 1);
+
+
+						var img = $(document.createElement('img'));
+						img.attr('src', dataUrl);
+						img.attr('width', 120);
+						img.appendTo('#container');
+						playAudio(cameraSound);
+			
+						socket.emit('image', dataUrl);
+						store();
+						//console.log("We've got a photo!");
+
+						
+					};
+
+				};
+					
+				socket.on('message', function (data) {
+
+					var previousData = "";
+
+					if(data != previousData){
+
+						if( data == '0'){
+
+							ready = true;
+
+						}else if(data != null){
+							//console.log(data.length);
+							
+							for( var i = 0; i< data.length; i++){
+
+								var img = $(document.createElement('img'));
+								img.attr('src', data[i]);
+								img.attr('width', 120);
+								img.appendTo('#container');
+
+							}
+						}
+
+						previousData = data;
+					}
+
+				});
+
+				var cameraSound = "<audio autoplay><source src = 'http://itp.nyu.edu/~jj1357/liveweb/51360__thecheeseman__camera-snap1.wav' type= 'audio/wav'></audio>";
+
+	            function playAudio(audioHTML){
+
+				$("audio").html(audioHTML);
+				
+				}
+				socket.on('image', function (data) {
+	                
+	                //console.log("Got image");
+
+					var img = $(document.createElement('img'));
+					img.attr('src', data);
+					img.attr('width', 120);
+					img.appendTo('#container');
+					
+	            });
+
+
+	       
+
+				
+		</script>
+	</head>
+	<body onload = "initWebRTC();">
+	<audio></audio>	
+	<span id = "instruction"> Taking a photo of smilely face is boring. This is a photo booth to collect the profile pics only ---  <br/>created by Jess Jiyoung Jung #faceit #liveweb</span>
+	<div id = "space" style = "height:20px;"></div> 
+	<section id="content">
+  		
+  		<div id = "photobooth" style = "width: 520px; height: 780px; background-color: #00FFFF; position: fixed;">
+			<video id = "thevideo" width= '480' style="display:none;"></video>
+			<canvas id= "thecanvas" width="480" height= "360"></canvas>	
+			<h1 class = "big">Don't look at me;
+				<br>Turn your head!</h1>
+			
+				
+		</div>
+
+  		<div id="container">
+  			<img src = "">
+		</div>
+		
+		
+		</section>
+
+	</body>
+</html>
